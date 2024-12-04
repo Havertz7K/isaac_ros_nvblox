@@ -30,7 +30,7 @@ def generate_launch_description() -> LaunchDescription:
         cli=True)
     args.add_arg('run_rviz', True, description='Whether to run rviz2.', cli=True)
     args.add_arg('mode', NvbloxMode.static)
-    args.add_arg('camera', NvbloxCamera.realsense)
+    args.add_arg('camera', NvbloxCamera.gazebo)
     actions = args.get_launch_actions()
 
     actions.append(

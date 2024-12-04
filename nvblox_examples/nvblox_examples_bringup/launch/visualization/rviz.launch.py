@@ -63,7 +63,7 @@ def generate_launch_description() -> LaunchDescription:
         description='Path to rviz config (using example config if not set).',
         cli=True)
     args.add_arg('mode', NvbloxMode.static)
-    args.add_arg('camera', NvbloxCamera.realsense)
+    args.add_arg('camera', NvbloxCamera.gazebo)
 
     args.add_opaque_function(add_rviz)
     return LaunchDescription(args.get_launch_actions())

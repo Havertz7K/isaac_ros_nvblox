@@ -62,6 +62,7 @@ class NvbloxCamera(NvbloxEnum):
     isaac_sim = 2
     zed2 = 3
     zedx = 4
+    gazebo = 5
 
 
 class NvbloxPeopleSegmentation(NvbloxEnum):

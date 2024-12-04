@@ -68,6 +68,23 @@ def get_zed_remappings(mode: NvbloxMode) -> List[Tuple[str, str]]:
     remappings.append(('pose', '/zed/zed_node/pose'))
     return remappings
 
+def get_gazebo_remappings(mode: NvbloxMode, num_cameras: int,
+                             lidar: bool) -> List[Tuple[str, str]]:
+    remappings = []
+    camera_names = ['head', 'head2'][:num_cameras]
+    for i, name in enumerate(camera_names):
+        remappings.append((f'camera_{i}/depth/image', f'{name}/depth/image_raw'))
+        remappings.append((f'camera_{i}/depth/camera_info', f'{name}/depth/camera_info'))
+        remappings.append((f'camera_{i}/color/image', f'{name}/color/image_raw'))
+        remappings.append((f'camera_{i}/color/camera_info', f'{name}/color/camera_info'))
+    if mode is NvbloxMode.people:
+        assert num_cameras >= 1, 'People mode can only run if at least 1 camera is enabled.'
+        remappings.append(('mask/image', '/semantic_conversion/front_stereo_camera/semantic_mono8'))
+        remappings.append(('mask/camera_info', '/front_stereo_camera/left/camera_info'))
+    if lidar:
+        remappings.append(('pointcloud', '/front_3d_lidar/point_cloud'))
+    return remappings
+
 
 def add_nvblox(args: lu.ArgumentContainer) -> List[Action]:
     mode = NvbloxMode[args.mode]
@@ -86,6 +103,8 @@ def add_nvblox(args: lu.ArgumentContainer) -> List[Action]:
                                    'config/nvblox/specializations/nvblox_realsense.yaml')
     zed_config = lu.get_path('nvblox_examples_bringup',
                              'config/nvblox/specializations/nvblox_zed.yaml')
+    gazebo_config = lu.get_path('nvblox_examples_bringup',
+                             'config/nvblox/specializations/nvblox_gazebo.yaml')
 
     if mode is NvbloxMode.static:
         mode_config = {}
@@ -111,6 +130,9 @@ def add_nvblox(args: lu.ArgumentContainer) -> List[Action]:
         camera_config = zed_config
         assert num_cameras == 1, 'Zed example can only run with 1 camera.'
         assert not use_lidar, 'Can not run lidar for zed example.'
+    elif camera is NvbloxCamera.gazebo:
+        remappings = get_gazebo_remappings(mode, num_cameras, use_lidar)
+        camera_config = gazebo_config
     else:
         raise Exception(f'Camera {camera} not implemented for nvblox.')
 
@@ -152,7 +174,7 @@ def generate_launch_description() -> LaunchDescription:
     args = lu.ArgumentContainer()
     args.add_arg('mode')
     args.add_arg('camera')
-    args.add_arg('num_cameras', 1)
+    args.add_arg('num_cameras', 2)
     args.add_arg('lidar', 'False')
     args.add_arg('container_name', NVBLOX_CONTAINER_NAME)
     args.add_arg('run_standalone', 'False')

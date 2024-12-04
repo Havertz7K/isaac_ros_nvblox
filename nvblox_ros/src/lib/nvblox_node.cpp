@@ -22,6 +22,8 @@
 #include <nvblox/io/pointcloud_io.h>
 #include <nvblox/utils/delays.h>
 #include <nvblox/utils/rates.h>
+#include <nvblox/map/layer.h>
+
 
 #include <limits>
 #include <memory>
@@ -100,9 +102,9 @@ NvbloxNode::NvbloxNode(const rclcpp::NodeOptions & options, const std::string & 
 
 NvbloxNode::~NvbloxNode()
 {
-  RCLCPP_INFO_STREAM(get_logger(), "Timing statistics: \n" << nvblox::timing::Timing::Print());
-  RCLCPP_INFO_STREAM(get_logger(), "Rates statistics: \n" << nvblox::timing::Rates::Print());
-  RCLCPP_INFO_STREAM(get_logger(), "Delay statistics: \n" << nvblox::timing::Delays::Print());
+  // RCLCPP_INFO_STREAM(get_logger(), "Timing statistics: \n" << nvblox::timing::Timing::Print());
+  // RCLCPP_INFO_STREAM(get_logger(), "Rates statistics: \n" << nvblox::timing::Rates::Print());
+  // RCLCPP_INFO_STREAM(get_logger(), "Delay statistics: \n" << nvblox::timing::Delays::Print());
 }
 
 void NvbloxNode::initializeMultiMapper()
@@ -297,6 +299,12 @@ void NvbloxNode::advertiseServices()
     "~/get_esdf_and_gradient",
     std::bind(
       &NvbloxNode::getEsdfAndGradientService, this, std::placeholders::_1,
+      std::placeholders::_2),
+    rmw_qos_profile_services_default, group_processing_);
+  send_voxel_esdf_and_gradient_service_ = create_service<nvblox_msgs::srv::VoxelEsdfAndGradients>(
+    "~/get_voxel_esdf_and_gradient",
+    std::bind(
+      &NvbloxNode::getVoxelEsdfAndGradients, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default, group_processing_);
 }
@@ -1235,6 +1243,7 @@ void NvbloxNode::getEsdfAndGradientService(
     request->aabb_size_m.z);
   AxisAlignedBoundingBox aabb(aabb_min_m, aabb_min_m + aabb_size_m);
 
+
   // Convert the layer to a message.
   response->voxel_size.data = static_mapper_->esdf_layer().voxel_size();
   response->esdf_and_gradients = esdf_and_gradients_converter_.esdfInAabbToMultiArrayMsg(
@@ -1242,6 +1251,108 @@ void NvbloxNode::getEsdfAndGradientService(
     cuda_stream_);
 }
 
+void NvbloxNode::getVoxelEsdfAndGradients(
+  const std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Request> request,
+  std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Response> response)
+{
+  RCLCPP_INFO(this->get_logger(), "-------------getVoxelEsdfAndGradients-------------");
+  const int num_links = request->link_positions.size();
+  std::vector<Vector3f> link_positions(num_links);
+  for (int i = 0; i < num_links; i++) {
+    link_positions[i] = Vector3f(
+      request->link_positions[i].x, 
+      request->link_positions[i].y, 
+      request->link_positions[i].z
+    );
+  }
+  //printf("link_positions: %d\n", num_links);
+  // RCLCPP_INFO link_positions
+  RCLCPP_INFO(this->get_logger(), "link_positions: %d\n", num_links);
+
+  const float voxel_size = static_mapper_->esdf_layer().voxel_size();
+  // Vector3f origin = static_mapper_->esdf_layer().origin();
+  response->voxel_size.data = voxel_size;
+
+  std_msgs::msg::Float32MultiArray esdf_values;
+  esdf_values.data.resize(num_links);
+  response->gradients.resize(num_links);
+
+  std::vector<Index3D> block_indices(num_links);
+  std::vector<Index3D> voxel_indices(num_links);
+  std::vector<Vector3f> query_positions(num_links);
+
+  for (int i = 0; i < num_links; i++) {
+    Index3D block_idx, voxel_idx;
+    RCLCPP_INFO(this->get_logger(), "link_positions[i]: %0.2f, %0.2f, %0.2f\n", link_positions[i].x(), link_positions[i].y(), link_positions[i].z());
+    RCLCPP_INFO(this->get_logger(), "static_mapper_->esdf_layer().block_size(): %0.2f\n", static_mapper_->esdf_layer().block_size());
+    getBlockAndVoxelIndexFromPositionInLayer(
+      static_mapper_->esdf_layer().block_size(), 
+      link_positions[i],
+      &block_idx,
+      &voxel_idx
+    );
+
+    // printf("block_idx: %d, %d, %d\n", block_idx.x(), block_idx.y(), block_idx.z());
+    RCLCPP_INFO(this->get_logger(), "block_idx: %d, %d, %d\n", block_idx.x(), block_idx.y(), block_idx.z());
+
+    // Vector3f voxel_position = getPositionFromBlockIndexAndVoxelIndex(
+    //   static_mapper_->esdf_layer().block_size(),
+    //   block_idx,
+    //   voxel_idx
+    // );
+
+    // printf("voxel_position: %0.2f, %0.2f, %0.2f\n", voxel_position.x(), voxel_position.y(), voxel_position.z());
+    RCLCPP_INFO(this->get_logger(), "voxel_idx: %d, %d, %d\n", voxel_idx.x(), voxel_idx.y(), voxel_idx.z());
+
+    block_indices[i] = block_idx;
+    voxel_indices[i] = voxel_idx;
+
+    
+    //query_positions[i] = voxel_idx;
+  }
+  RCLCPP_INFO(this->get_logger(), "------------query_positions------------: %d\n", num_links);
+
+  std::vector<bool> success_flags(num_links);
+  std::vector<EsdfVoxel> voxels(num_links);
+
+  // printf("query_positions: %d\n", num_links);
+  //RCLCPP_INFO(this->get_logger(), "query_positions: %d\n", num_links);
+
+  static_mapper_->esdf_layer().getVoxels(link_positions, &voxels, &success_flags, &cuda_stream_);
+
+  cuda_stream_.synchronize();
+
+  for (int i = 0; i < num_links; i++) {
+    if (success_flags[i]) {
+      esdf_values.data[i] = voxel_size * std::sqrt(voxels[i].squared_distance_vox);
+      if (voxels[i].is_inside) {
+        esdf_values.data[i] *= -1.0f;
+      }
+      // Normalize the parent direction
+      Vector3f parent_dir = voxels[i].parent_direction.cast<float>();
+      float parent_distance = parent_dir.norm();
+      if (parent_distance > 0.0f) {
+        // Convert to meters and store in response
+        Vector3f gradient = -parent_dir.normalized() * voxel_size;
+        response->gradients[i].x = gradient.x();
+        response->gradients[i].y = gradient.y(); 
+        response->gradients[i].z = gradient.z();
+      } else {
+        response->gradients[i].x = 0.0f;
+        response->gradients[i].y = 0.0f;
+        response->gradients[i].z = 0.0f;
+      }
+    } else {
+      esdf_values.data[i] = params_.esdf_and_gradients_unobserved_value;
+      response->gradients[i].x = 0.0f;
+      response->gradients[i].y = 0.0f;
+      response->gradients[i].z = 0.0f;
+    }
+  }
+
+  response->esdf_values = esdf_values;
+  response->valid = std::all_of(success_flags.begin(), success_flags.end(), [](bool flag) { return flag; });
+}
 }  // namespace nvblox
 
 // Register the node as a component
