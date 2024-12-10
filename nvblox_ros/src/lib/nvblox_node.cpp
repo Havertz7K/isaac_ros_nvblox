@@ -1331,27 +1331,28 @@ void NvbloxNode::getVoxelEsdfAndGradients(
       // Normalize the parent direction
       Vector3f parent_dir = voxels[i].parent_direction.cast<float>();
       float parent_distance = parent_dir.norm();
-      if (parent_distance > 0.0f) {
+      if (parent_distance >= 0.0f) {
         // Convert to meters and store in response
-        Vector3f gradient = -parent_dir.normalized() * voxel_size;
+        Vector3f gradient = parent_dir.normalized() * voxel_size;
         response->gradients[i].x = gradient.x();
         response->gradients[i].y = gradient.y(); 
         response->gradients[i].z = gradient.z();
       } else {
-        response->gradients[i].x = 0.0f;
-        response->gradients[i].y = 0.0f;
-        response->gradients[i].z = 0.0f;
+        response->gradients[i].x = -1.0f;
+        response->gradients[i].y = -1.0f;
+        response->gradients[i].z = -1.0f;
       }
     } else {
       esdf_values.data[i] = params_.esdf_and_gradients_unobserved_value;
-      response->gradients[i].x = 0.0f;
-      response->gradients[i].y = 0.0f;
-      response->gradients[i].z = 0.0f;
+      response->gradients[i].x = -1.0f;
+      response->gradients[i].y = -1.0f;
+      response->gradients[i].z = -1.0f;
+      success_flags[i] = true;
     }
   }
 
   response->esdf_values = esdf_values;
-  response->valid = std::all_of(success_flags.begin(), success_flags.end(), [](bool flag) { return flag; });
+  response->valid = std::all_of(success_flags.begin(), success_flags.end(), [](bool flag = true) { return flag; });
 }
 }  // namespace nvblox
 

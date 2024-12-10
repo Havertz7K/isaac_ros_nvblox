@@ -91,6 +91,15 @@ def generate_launch_description() -> LaunchDescription:
                 'num_cameras': args.num_cameras,
                 'lidar': args.lidar,
             }))
+    # tf: world to map
+    actions.append(
+        lu.static_transform(
+            parent='world',
+            child='map',
+            translation=[0, 0, 0],
+            orientation_rpy=[0, 0, 0],
+        )
+    )
 
     # Play ros2bag
     actions.append(
@@ -100,13 +109,13 @@ def generate_launch_description() -> LaunchDescription:
             condition=IfCondition(lu.is_valid(args.rosbag))))
 
     # Visualization
-    # actions.append(
-    #     lu.include(
-    #         'nvblox_examples_bringup',
-    #         'launch/visualization/visualization.launch.py',
-    #         launch_arguments={
-    #             'mode': args.mode,
-    #             'camera': NvbloxCamera.gazebo,
-    #         }))
+    actions.append(
+        lu.include(
+            'nvblox_examples_bringup',
+            'launch/visualization/visualization.launch.py',
+            launch_arguments={
+                'mode': args.mode,
+                'camera': NvbloxCamera.gazebo,
+            }))
 
     return LaunchDescription(actions)
