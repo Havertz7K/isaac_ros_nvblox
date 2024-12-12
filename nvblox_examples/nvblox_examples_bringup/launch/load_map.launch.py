@@ -51,15 +51,15 @@ def generate_launch_description() -> LaunchDescription:
     actions.append(lu.load_composable_nodes(NVBLOX_CONTAINER_NAME, [nvblox_node]))
 
     # Add RViz
-    rviz_config = lu.get_path('nvblox_examples_bringup', 'config/visualization/map.rviz')
-    actions.append(
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', str(rviz_config)],
-            output='screen'
-        )
-    )
+    # rviz_config = lu.get_path('nvblox_examples_bringup', 'config/visualization/map.rviz')
+    # actions.append(
+    #     Node(
+    #         package='rviz2',
+    #         executable='rviz2',
+    #         name='rviz2',
+    #         arguments=['-d', str(rviz_config)],
+    #         output='screen'
+    #     )
+    # )
 
     return LaunchDescription(actions)
