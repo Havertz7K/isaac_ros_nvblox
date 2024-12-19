@@ -25,13 +25,13 @@ from nvblox_ros_python_utils.nvblox_constants import SEMSEGNET_INPUT_IMAGE_WIDTH
 
 def generate_launch_description() -> LaunchDescription:
     args = lu.ArgumentContainer()
-    args.add_arg(
-        'rosbag', 'None', description='Path to rosbag (running on sensor if not set).', cli=True)
-    args.add_arg('rosbag_args', '', description='Additional args for ros2 bag play.', cli=True)
+    # args.add_arg(
+    #     'rosbag', 'None', description='Path to rosbag (running on sensor if not set).', cli=True)
+    # args.add_arg('rosbag_args', '', description='Additional args for ros2 bag play.', cli=True)
     args.add_arg('log_level', 'info', choices=['debug', 'info', 'warn'], cli=True)
     args.add_arg(
         'mode',
-        default=NvbloxMode.static,
+        default=NvbloxMode.dynamic,
         choices=NvbloxMode.names(),
         description='The nvblox mode.',
         cli=True)
@@ -47,8 +47,8 @@ def generate_launch_description() -> LaunchDescription:
     actions = args.get_launch_actions()
 
     # Globally set use_sim_time if we're running from bag or sim
-    actions.append(
-        SetParameter('use_sim_time', True, condition=IfCondition(lu.is_valid(args.rosbag))))
+    # actions.append(
+    #     SetParameter('use_sim_time', True, condition=IfCondition(lu.is_valid(args.rosbag))))
 
 
     # Realsense
@@ -57,7 +57,8 @@ def generate_launch_description() -> LaunchDescription:
             'nvblox_examples_bringup',
             'launch/sensors/realsense.launch.py',
             launch_arguments={'container_name': NVBLOX_CONTAINER_NAME},
-            condition=UnlessCondition(lu.is_valid(args.rosbag))))
+            #condition=UnlessCondition(lu.is_valid(args.rosbag))
+            ))
 
     # Visual SLAM
     actions.append(
@@ -73,17 +74,17 @@ def generate_launch_description() -> LaunchDescription:
             ))
 
     # People segmentation
-    actions.append(
-        lu.include(
-            'nvblox_examples_bringup',
-            'launch/perception/segmentation.launch.py',
-            launch_arguments={
-                'container_name': NVBLOX_CONTAINER_NAME,
-                'people_segmentation': args.people_segmentation,
-                'input_topic': '/camera/color/image_raw',
-                'input_camera_info_topic': '/camera/color/camera_info',
-            },
-            condition=IfCondition(lu.has_substring(args.mode, NvbloxMode.people))))
+    # actions.append(
+    #     lu.include(
+    #         'nvblox_examples_bringup',
+    #         'launch/perception/segmentation.launch.py',
+    #         launch_arguments={
+    #             'container_name': NVBLOX_CONTAINER_NAME,
+    #             'people_segmentation': args.people_segmentation,
+    #             'input_topic': '/camera/color/image_raw',
+    #             'input_camera_info_topic': '/camera/color/camera_info',
+    #         },
+    #         condition=IfCondition(lu.has_substring(args.mode, NvbloxMode.people))))
 
     # Nvblox
     actions.append(
@@ -97,11 +98,11 @@ def generate_launch_description() -> LaunchDescription:
             }))
 
     # Play ros2bag
-    actions.append(
-        lu.play_rosbag(
-            bag_path=args.rosbag,
-            additional_bag_play_args=args.rosbag_args,
-            condition=IfCondition(lu.is_valid(args.rosbag))))
+    # actions.append(
+    #     lu.play_rosbag(
+    #         bag_path=args.rosbag,
+    #         additional_bag_play_args=args.rosbag_args,
+    #         condition=IfCondition(lu.is_valid(args.rosbag))))
 
     # Visualization
     actions.append(

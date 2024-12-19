@@ -60,6 +60,7 @@ NvbloxNode::NvbloxNode(const rclcpp::NodeOptions & options, const std::string & 
   // subscriptions.
   group_processing_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
+  esdf_service_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   // Initialize the MultiMapper with the underlying dynamic/static mappers.
   initializeMultiMapper();
 
@@ -178,7 +179,7 @@ void NvbloxNode::subscribeToTopics()
           this, base_name + "/image",
           nvidia::isaac_ros::nitros::nitros_image_32FC1_t::supported_type_name,
           std::bind(&NvbloxNode::depthImageCallback, this, std::placeholders::_1),
-          nvidia::isaac_ros::nitros::NitrosStatisticsConfig(), input_qos));
+          nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig(), input_qos));
     }
   }
   if (params_.use_color) {
@@ -194,7 +195,7 @@ void NvbloxNode::subscribeToTopics()
           this, base_name + "/image",
           nvidia::isaac_ros::nitros::nitros_image_rgb8_t::supported_type_name,
           std::bind(&NvbloxNode::colorImageCallback, this, std::placeholders::_1),
-          nvidia::isaac_ros::nitros::NitrosStatisticsConfig(), input_qos));
+          nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig(), input_qos));
     }
   }
 
@@ -306,7 +307,7 @@ void NvbloxNode::advertiseServices()
     std::bind(
       &NvbloxNode::getVoxelEsdfAndGradients, this, std::placeholders::_1,
       std::placeholders::_2),
-    rmw_qos_profile_services_default, group_processing_);
+    rmw_qos_profile_services_default, esdf_service_group_);
 }
 
 void NvbloxNode::setupTimers()
@@ -318,6 +319,7 @@ void NvbloxNode::setupTimers()
     std::chrono::duration<double>(params_.tick_period_ms / 1000.0),
     std::bind(&NvbloxNode::tick, this), group_processing_);
 }
+
 
 // Functions internal to this file.
 namespace
@@ -395,75 +397,78 @@ bool NvbloxNode::shouldProcess(
 void NvbloxNode::tick()
 {
   // The idle timer measures time spent *outside* the tick function
-  idle_timer_.Stop();
+  // auto start_time = std::chrono::high_resolution_clock::now();
+  // idle_timer_.Stop();
 
-  timing::Timer tick_timer("ros/tick");
-  timing::Rates::tick("ros/tick");
+  // timing::Timer tick_timer("ros/tick");
+  // timing::Rates::tick("ros/tick");
 
-  // Process sensor data
-  // NOTE: We process these queues every time, checking if we can process (or discard) messages
-  // in the queue. Dropping messages in order to not exceed integration rates is handled inside
-  // the processQueue functions.
-  if (params_.use_depth) {
-    processDepthQueue();
-  }
-  if (params_.use_color) {
-    processColorQueue();
-  }
-  if (params_.use_lidar) {
-    processPointcloudQueue();
-  }
+  // // Process sensor data
+  // // NOTE: We process these queues every time, checking if we can process (or discard) messages
+  // // in the queue. Dropping messages in order to not exceed integration rates is handled inside
+  // // the processQueue functions.
+  // if (params_.use_depth) {
+  //   processDepthQueue();
+  // }
+  // if (params_.use_color) {
+  //   processColorQueue();
+  // }
+  // if (params_.use_lidar) {
+  //   processPointcloudQueue();
+  // }
 
-  // Decay
-  if (const rclcpp::Time now = this->get_clock()->now();
-    shouldProcess(now, decay_tsdf_last_time_, params_.decay_tsdf_rate_hz))
-  {
-    decayTsdf();
-    decay_tsdf_last_time_ = now;
-  }
-  if (const rclcpp::Time now = this->get_clock()->now();
-    (isUsingBothMappers(params_.mapping_type)) &&
-    shouldProcess(
-      now, decay_dynamic_occupancy_last_time_,
-      params_.decay_dynamic_occupancy_rate_hz))
-  {
-    decayDynamicOccupancy();
-    decay_dynamic_occupancy_last_time_ = now;
-  }
+  // // Decay
+  // if (const rclcpp::Time now = this->get_clock()->now();
+  //   shouldProcess(now, decay_tsdf_last_time_, params_.decay_tsdf_rate_hz))
+  // {
+  //   decayTsdf();
+  //   decay_tsdf_last_time_ = now;
+  // }
+  // if (const rclcpp::Time now = this->get_clock()->now();
+  //   (isUsingBothMappers(params_.mapping_type)) &&
+  //   shouldProcess(
+  //     now, decay_dynamic_occupancy_last_time_,
+  //     params_.decay_dynamic_occupancy_rate_hz))
+  // {
+  //   decayDynamicOccupancy();
+  //   decay_dynamic_occupancy_last_time_ = now;
+  // }
 
-  // Mapping
-  if (const rclcpp::Time now = this->get_clock()->now(); shouldProcess(
-      now, clear_map_outside_radius_last_time_, params_.clear_map_outside_radius_rate_hz))
-  {
-    clearMapOutsideOfRadiusOfLastKnownPose();
-    clear_map_outside_radius_last_time_ = now;
-  }
+  // // Mapping
+  // if (const rclcpp::Time now = this->get_clock()->now(); shouldProcess(
+  //     now, clear_map_outside_radius_last_time_, params_.clear_map_outside_radius_rate_hz))
+  // {
+  //   clearMapOutsideOfRadiusOfLastKnownPose();
+  //   clear_map_outside_radius_last_time_ = now;
+  // }
 
-  // Output cost map
-  if (const rclcpp::Time now = this->get_clock()->now();
-    shouldProcess(now, update_esdf_last_time_, params_.update_esdf_rate_hz))
-  {
-    processEsdf();
-    update_esdf_last_time_ = now;
-  }
+  // // Output cost map
+  // if (const rclcpp::Time now = this->get_clock()->now();
+  //   shouldProcess(now, update_esdf_last_time_, params_.update_esdf_rate_hz))
+  // {
+  //   processEsdf();
+  //   update_esdf_last_time_ = now;
+  // }
 
-  // Visualization
-  if (const rclcpp::Time now = this->get_clock()->now();
-    shouldProcess(now, update_mesh_last_time_, params_.update_mesh_rate_hz))
-  {
-    processMesh();
-    update_mesh_last_time_ = now;
-  }
+  // // Visualization
+  // if (const rclcpp::Time now = this->get_clock()->now();
+  //   shouldProcess(now, update_mesh_last_time_, params_.update_mesh_rate_hz))
+  // {
+  //   processMesh();
+  //   update_mesh_last_time_ = now;
+  // }
 
-  if (const rclcpp::Time now = this->get_clock()->now();
-    shouldProcess(now, publish_layer_last_time_, params_.publish_layer_rate_hz))
-  {
-    publishLayers();
-    publish_layer_last_time_ = now;
-  }
-
-  // Restart the idle timer
-  idle_timer_.Start();
+  // if (const rclcpp::Time now = this->get_clock()->now();
+  //   shouldProcess(now, publish_layer_last_time_, params_.publish_layer_rate_hz))
+  // {
+  //   publishLayers();
+  //   publish_layer_last_time_ = now;
+  // }
+  // auto end_time = std::chrono::high_resolution_clock::now();
+  // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  // //RCLCPP_INFO(get_logger(), "Tick took %ld ms", duration.count());
+  // // Restart the idle timer
+  // idle_timer_.Start();
 }
 
 void NvbloxNode::processDepthQueue()
@@ -1269,9 +1274,9 @@ void NvbloxNode::getVoxelEsdfAndGradients(
     );
   }
   
-  auto prep_time = std::chrono::high_resolution_clock::now();
-  RCLCPP_INFO(this->get_logger(), "Data preparation took: %ld microseconds", 
-    std::chrono::duration_cast<std::chrono::microseconds>(prep_time - start_time).count());
+  // auto prep_time = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "Data preparation took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(prep_time - start_time).count());
 
   // 2. 参数设置阶段
   const float voxel_size = static_mapper_->esdf_layer().voxel_size();
@@ -1299,9 +1304,9 @@ void NvbloxNode::getVoxelEsdfAndGradients(
     voxel_indices[i] = voxel_idx;
   }
 
-  auto index_end = std::chrono::high_resolution_clock::now();
-  RCLCPP_INFO(this->get_logger(), "Index calculation took: %ld microseconds", 
-    std::chrono::duration_cast<std::chrono::microseconds>(index_end - index_start).count());
+  // auto index_end = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "Index calculation took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(index_end - index_start).count());
 
   // 4. ESDF查询阶段
   auto query_start = std::chrono::high_resolution_clock::now();
@@ -1311,48 +1316,58 @@ void NvbloxNode::getVoxelEsdfAndGradients(
   static_mapper_->esdf_layer().getVoxels(link_positions, &voxels, &success_flags, &cuda_stream_);
   cuda_stream_.synchronize();
 
-  auto query_end = std::chrono::high_resolution_clock::now();
-  RCLCPP_INFO(this->get_logger(), "ESDF query took: %ld microseconds", 
-    std::chrono::duration_cast<std::chrono::microseconds>(query_end - query_start).count());
+  // auto query_end = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "ESDF query took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(query_end - query_start).count());
 
   // 5. 结果处理阶段
-  auto process_start = std::chrono::high_resolution_clock::now();
+  // auto process_start = std::chrono::high_resolution_clock::now();
   
   for (int i = 0; i < num_links; i++) {
     if (success_flags[i]) {
-      esdf_values.data[i] = voxel_size * std::sqrt(voxels[i].squared_distance_vox);
-      if (voxels[i].is_inside) {
-        esdf_values.data[i] *= -1.0f;
-      }
-      Vector3f parent_dir = voxels[i].parent_direction.cast<float>();
-      float parent_distance = parent_dir.norm();
-      if (parent_distance >= 0.0f) {
-        Vector3f gradient = parent_dir.normalized() * voxel_size;
-        response->gradients[i].x = gradient.x();
-        response->gradients[i].y = gradient.y(); 
-        response->gradients[i].z = gradient.z();
-      } else {
+        float distance = voxel_size * std::sqrt(voxels[i].squared_distance_vox);
+        esdf_values.data[i] = distance;
+        if (voxels[i].is_inside) {
+            esdf_values.data[i] *= -1.0f;
+        }
+        Vector3f parent_dir = voxels[i].parent_direction.cast<float>();
+        float parent_distance = parent_dir.norm();
+        if (parent_distance >= 0.0f) {
+            float base_scale = 1.0f ;
+            float distance_scale = 1.0f / (1.0f + std::abs(distance));
+            Vector3f gradient = parent_dir.normalized() * voxel_size * base_scale * distance_scale;
+            response->gradients[i].x = gradient.x();
+            response->gradients[i].y = gradient.y(); 
+            response->gradients[i].z = gradient.z();
+        } else {
+            response->gradients[i].x = -1.0f;
+            response->gradients[i].y = -1.0f;
+            response->gradients[i].z = -1.0f;
+        }
+    } else {
+        esdf_values.data[i] = params_.esdf_and_gradients_unobserved_value;
         response->gradients[i].x = -1.0f;
         response->gradients[i].y = -1.0f;
         response->gradients[i].z = -1.0f;
-      }
-    } else {
-      esdf_values.data[i] = params_.esdf_and_gradients_unobserved_value;
-      response->gradients[i].x = -1.0f;
-      response->gradients[i].y = -1.0f;
-      response->gradients[i].z = -1.0f;
-      success_flags[i] = true;
+        success_flags[i] = true;
     }
   }
+
+  
+    RCLCPP_INFO(this->get_logger(), "esdf_values: [%f,%f,%f,%f,%f,%f,%f]", esdf_values.data[0], esdf_values.data[1], esdf_values.data[2], esdf_values.data[3], esdf_values.data[4], esdf_values.data[5], esdf_values.data[6]);
+    RCLCPP_INFO(this->get_logger(), "4-6 links gradients: [%f,%f,%f],[%f,%f,%f],[%f,%f,%f]",
+     response->gradients[4].x, response->gradients[4].y, response->gradients[4].z, 
+     response->gradients[5].x, response->gradients[5].y, response->gradients[5].z, 
+     response->gradients[6].x, response->gradients[6].y, response->gradients[6].z);
 
   response->esdf_values = esdf_values;
   response->valid = std::all_of(success_flags.begin(), success_flags.end(), [](bool flag = true) { return flag; });
 
   auto end_time = std::chrono::high_resolution_clock::now();
-  RCLCPP_INFO(this->get_logger(), "Result processing took: %ld microseconds", 
-    std::chrono::duration_cast<std::chrono::microseconds>(end_time - process_start).count());
+  // RCLCPP_INFO(this->get_logger(), "Result processing took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(end_time - process_start).count());
   
-  // 总时间
+  // // 总时间
   RCLCPP_INFO(this->get_logger(), "Total execution took: %ld microseconds", 
     std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
 }

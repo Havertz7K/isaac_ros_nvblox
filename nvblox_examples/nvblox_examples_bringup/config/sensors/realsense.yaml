@@ -15,20 +15,23 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+# libRealsense Version 2.54.1-0~realsense.9590
+# realsense-ros2 Version 
 ---
-device_type: ''
-serial_no: ''
-usb_port_id: ''
+device_type: 'D455'
+serial_no: '234322307746'
+#usb_port_id: '/devices/pci0000:00/0000:00:08.1/0000:10:00.4/usb8/8-1/8-1:1.0/video4linux/video0'
 
 rgb_camera:
-  profile: '640x480x15'
+  profile: '640x480x30'
 color_info_qos: "SENSOR_DATA"
 color_qos: "SENSOR_DATA"
 
 depth_module:
   profile: '640x480x60'
   emitter_enabled: 1
-  emitter_on_off: true
+  emitter_on_off: false
 depth_qos: "SENSOR_DATA"
 depth_info_qos: "SENSOR_DATA"
 
@@ -47,5 +50,5 @@ pointcloud:
 pointcloud_texture_index: 0
 pointcloud_texture_stream: RS2_STREAM_ANY
 
-enable_sync: false
+enable_sync: true
 align_depth: false

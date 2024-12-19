@@ -305,6 +305,8 @@ protected:
   // Callback groups.
   rclcpp::CallbackGroup::SharedPtr group_processing_;
 
+  rclcpp::CallbackGroup::SharedPtr esdf_service_group_;
+
   // Timers.
   rclcpp::TimerBase::SharedPtr queue_processing_timer_;
 

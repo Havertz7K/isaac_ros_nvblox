@@ -174,7 +174,7 @@ def generate_launch_description() -> LaunchDescription:
     args = lu.ArgumentContainer()
     args.add_arg('mode')
     args.add_arg('camera')
-    args.add_arg('num_cameras', 2)
+    args.add_arg('num_cameras', 1)
     args.add_arg('lidar', 'False')
     args.add_arg('container_name', NVBLOX_CONTAINER_NAME)
     args.add_arg('run_standalone', 'False')
