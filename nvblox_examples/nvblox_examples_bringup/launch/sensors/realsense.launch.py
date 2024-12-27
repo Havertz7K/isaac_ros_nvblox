@@ -36,8 +36,10 @@ def generate_launch_description() -> LaunchDescription:
         package='realsense_splitter',
         plugin='nvblox::RealsenseSplitterNode',
         parameters=[{
-            'input_qos': 'SENSOR_DATA',
-            'output_qos': 'SENSOR_DATA'
+            # 'input_qos': 'SENSOR_DATA',
+            # 'output_qos': 'SENSOR_DATA'
+            'input_qos': 'SYSTEM_DEFAULT',
+            'output_qos': 'SYSTEM_DEFAULT'
         }],
         remappings=[
             ('input/infra_1', '/camera/infra1/image_rect_raw'),

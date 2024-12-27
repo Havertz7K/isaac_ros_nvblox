@@ -28,6 +28,7 @@ RealsenseSplitterNode::RealsenseSplitterNode(const rclcpp::NodeOptions & options
   RCLCPP_INFO(get_logger(), "Creating a RealsenseSplitterNode().");
 
   // Subscriber/Publisher parameters
+  //const std::string kDefaultQoS = "SENSOR_DATA";
   const std::string kDefaultQoS = "SYSTEM_DEFAULT";
   constexpr size_t kInputQueueSize = 10;
   constexpr size_t kOutputQueueSize = 10;

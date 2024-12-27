@@ -24,18 +24,23 @@ serial_no: '234322307746'
 #usb_port_id: '/devices/pci0000:00/0000:00:08.1/0000:10:00.4/usb8/8-1/8-1:1.0/video4linux/video0'
 
 rgb_camera:
-  profile: '640x480x30'
-color_info_qos: "SENSOR_DATA"
-color_qos: "SENSOR_DATA"
+  profile: '848x480x30'
+# color_info_qos: "SENSOR_DATA"
+# color_qos: "SENSOR_DATA"
+color_info_qos: "SYSTEM_DEFAULT"
+color_qos: "SYSTEM_DEFAULT"
 
 depth_module:
-  profile: '640x480x60'
+  profile: '848x480x30'
   emitter_enabled: 1
   emitter_on_off: false
-depth_qos: "SENSOR_DATA"
-depth_info_qos: "SENSOR_DATA"
+# depth_qos: "SENSOR_DATA"
+# depth_info_qos: "SENSOR_DATA"
+depth_qos: "SYSTEM_DEFAULT"
+depth_info_qos: "SYSTEM_DEFAULT"
 
-infra_qos: "SENSOR_DATA"
+# infra_qos: "SENSOR_DATA"
+infra_qos: "SYSTEM_DEFAULT"
 
 enable_accel: false
 enable_color: true
@@ -45,10 +50,10 @@ enable_infra1: true
 enable_infra2: true
 
 pointcloud:
-  enable: false
+  enable: true
 
 pointcloud_texture_index: 0
 pointcloud_texture_stream: RS2_STREAM_ANY
 
 enable_sync: true
-align_depth: false
+align_depth: true

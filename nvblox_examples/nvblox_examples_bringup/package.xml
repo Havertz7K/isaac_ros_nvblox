@@ -45,6 +45,7 @@
 
   <!-- Visual SLAM -->
   <exec_depend>isaac_ros_visual_slam</exec_depend>
+  <depend>isaac_ros_common</depend>
 
   <!-- Nova Carter -->
   <exec_depend>nova_carter_navigation</exec_depend>
@@ -56,6 +57,8 @@
   <exec_depend>isaac_ros_triton</exec_depend>
   <exec_depend>isaac_ros_unet</exec_depend>
   <exec_depend>semantic_label_conversion</exec_depend>
+
+
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

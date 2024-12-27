@@ -397,85 +397,94 @@ bool NvbloxNode::shouldProcess(
 void NvbloxNode::tick()
 {
   // The idle timer measures time spent *outside* the tick function
-  // auto start_time = std::chrono::high_resolution_clock::now();
-  // idle_timer_.Stop();
+  auto start_time = std::chrono::high_resolution_clock::now();
+  idle_timer_.Stop();
 
-  // timing::Timer tick_timer("ros/tick");
-  // timing::Rates::tick("ros/tick");
+  timing::Timer tick_timer("ros/tick");
+  timing::Rates::tick("ros/tick");
 
-  // // Process sensor data
-  // // NOTE: We process these queues every time, checking if we can process (or discard) messages
-  // // in the queue. Dropping messages in order to not exceed integration rates is handled inside
-  // // the processQueue functions.
-  // if (params_.use_depth) {
-  //   processDepthQueue();
-  // }
-  // if (params_.use_color) {
-  //   processColorQueue();
-  // }
-  // if (params_.use_lidar) {
-  //   processPointcloudQueue();
-  // }
+  // Process sensor data
+  // NOTE: We process these queues every time, checking if we can process (or discard) messages
+  // in the queue. Dropping messages in order to not exceed integration rates is handled inside
+  // the processQueue functions.
+  if (params_.use_depth) {
+    processDepthQueue();
+  }
+  if (params_.use_color) {
+    processColorQueue();
+  }
+  if (params_.use_lidar) {
+    processPointcloudQueue();
+  }
 
-  // // Decay
-  // if (const rclcpp::Time now = this->get_clock()->now();
-  //   shouldProcess(now, decay_tsdf_last_time_, params_.decay_tsdf_rate_hz))
-  // {
-  //   decayTsdf();
-  //   decay_tsdf_last_time_ = now;
-  // }
-  // if (const rclcpp::Time now = this->get_clock()->now();
-  //   (isUsingBothMappers(params_.mapping_type)) &&
-  //   shouldProcess(
-  //     now, decay_dynamic_occupancy_last_time_,
-  //     params_.decay_dynamic_occupancy_rate_hz))
-  // {
-  //   decayDynamicOccupancy();
-  //   decay_dynamic_occupancy_last_time_ = now;
-  // }
+  // Decay
+  if (const rclcpp::Time now = this->get_clock()->now();
+    shouldProcess(now, decay_tsdf_last_time_, params_.decay_tsdf_rate_hz))
+  {
+    decayTsdf();
+    decay_tsdf_last_time_ = now;
+  }
+  if (const rclcpp::Time now = this->get_clock()->now();
+    (isUsingBothMappers(params_.mapping_type)) &&
+    shouldProcess(
+      now, decay_dynamic_occupancy_last_time_,
+      params_.decay_dynamic_occupancy_rate_hz))
+  {
+    decayDynamicOccupancy();
+    decay_dynamic_occupancy_last_time_ = now;
+  }
 
-  // // Mapping
-  // if (const rclcpp::Time now = this->get_clock()->now(); shouldProcess(
-  //     now, clear_map_outside_radius_last_time_, params_.clear_map_outside_radius_rate_hz))
-  // {
-  //   clearMapOutsideOfRadiusOfLastKnownPose();
-  //   clear_map_outside_radius_last_time_ = now;
-  // }
+  // Mapping
+  if (const rclcpp::Time now = this->get_clock()->now(); shouldProcess(
+      now, clear_map_outside_radius_last_time_, params_.clear_map_outside_radius_rate_hz))
+  {
+    clearMapOutsideOfRadiusOfLastKnownPose();
+    clear_map_outside_radius_last_time_ = now;
+  }
 
-  // // Output cost map
-  // if (const rclcpp::Time now = this->get_clock()->now();
-  //   shouldProcess(now, update_esdf_last_time_, params_.update_esdf_rate_hz))
-  // {
-  //   processEsdf();
-  //   update_esdf_last_time_ = now;
-  // }
+  // Output cost map
+  if (const rclcpp::Time now = this->get_clock()->now();
+    shouldProcess(now, update_esdf_last_time_, params_.update_esdf_rate_hz))
+  {
+    processEsdf();
+    update_esdf_last_time_ = now;
+  }
 
-  // // Visualization
-  // if (const rclcpp::Time now = this->get_clock()->now();
-  //   shouldProcess(now, update_mesh_last_time_, params_.update_mesh_rate_hz))
-  // {
-  //   processMesh();
-  //   update_mesh_last_time_ = now;
-  // }
+  // Visualization
+  if (const rclcpp::Time now = this->get_clock()->now();
+    shouldProcess(now, update_mesh_last_time_, params_.update_mesh_rate_hz))
+  {
+    processMesh();
+    update_mesh_last_time_ = now;
+  }
 
-  // if (const rclcpp::Time now = this->get_clock()->now();
-  //   shouldProcess(now, publish_layer_last_time_, params_.publish_layer_rate_hz))
-  // {
-  //   publishLayers();
-  //   publish_layer_last_time_ = now;
-  // }
-  // auto end_time = std::chrono::high_resolution_clock::now();
-  // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-  // //RCLCPP_INFO(get_logger(), "Tick took %ld ms", duration.count());
-  // // Restart the idle timer
-  // idle_timer_.Start();
+  if (const rclcpp::Time now = this->get_clock()->now();
+    shouldProcess(now, publish_layer_last_time_, params_.publish_layer_rate_hz))
+  {
+    publishLayers();
+    publish_layer_last_time_ = now;
+  }
+  auto end_time = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+  //RCLCPP_INFO(get_logger(), "Tick took %ld ms", duration.count());
+  // Restart the idle timer
+  idle_timer_.Start();
 }
 
 void NvbloxNode::processDepthQueue()
 {
-  auto message_ready = [this](const NitrosViewPtrAndFrameId & msg) {
-      return (msg.first != nullptr) && this->canTransform(msg.second, getTimestamp(*msg.first)) &&
-             this->depth_camera_cache_.hasCameraForFrameId(msg.second);
+  // Ìí¼Óµ÷ÊÔÊä³ö
+  //RCLCPP_INFO(get_logger(), "Processing depth queue. Queue size: %zu", depth_image_queue_.size());
+  
+      auto message_ready = [this](const NitrosViewPtrAndFrameId & msg) {
+      bool has_transform = this->canTransform(msg.second, getTimestamp(*msg.first));
+      bool has_camera = this->depth_camera_cache_.hasCameraForFrameId(msg.second);
+      
+      // RCLCPP_INFO(get_logger(), 
+      //             "Message check - Has transform: %d, Has camera: %d, Frame ID: %s",
+      //             has_transform, has_camera, msg.second.c_str());
+                  
+      return (msg.first != nullptr) && has_transform && has_camera;
     };
 
   processMessageQueue<NitrosViewPtrAndFrameId>(
