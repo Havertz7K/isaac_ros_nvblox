@@ -11,9 +11,9 @@
     # Parameters governing frequency of different processing steps in the reconstruction pipeline.
     # Processing happens every n:th tick_period. <=0 means that no processing take place
     tick_period_ms: 10
-    integrate_depth_rate_hz: 40.0
-    integrate_color_rate_hz: 5.0
-    integrate_lidar_rate_hz: 40.0
+    integrate_depth_rate_hz: 30.0
+    integrate_color_rate_hz: 30.0
+    integrate_lidar_rate_hz: 35.0
     update_mesh_rate_hz: 5.0
     update_esdf_rate_hz: 10.0
     publish_layer_rate_hz: 5.0
@@ -30,14 +30,14 @@
     print_statistics_on_console_period_ms: 10000
 
     # esdf settings
-    esdf_mode: "2d" # ["2d", "3d"]
+    esdf_mode: "3d" # ["2d", "3d"]
     publish_esdf_distance_slice: true
     # color settings
     use_color: true
     # depth settings
     use_depth: true
     # lidar settings
-    use_lidar: true
+    use_lidar: false
     lidar_width: 1800
     lidar_height: 31
     lidar_min_valid_range_m: 0.1
@@ -47,13 +47,13 @@
     maximum_input_queue_length: 10
     # Map clearing settings
     map_clearing_radius_m: 7.0 # no map clearing if < 0.0
-    map_clearing_frame_id: "base_link"
+    map_clearing_frame_id: "map"
     # QoS settings
     input_qos: "SYSTEM_DEFAULT"
     # Visualization
-    esdf_slice_bounds_visualization_attachment_frame_id: "base_link"
+    esdf_slice_bounds_visualization_attachment_frame_id: "map"
     esdf_slice_bounds_visualization_side_length: 10.0
-    workspace_height_bounds_visualization_attachment_frame_id: "base_link"
+    workspace_height_bounds_visualization_attachment_frame_id: "map"
     workspace_height_bounds_visualization_side_length: 10.0
     layer_visualization_min_tsdf_weight: 0.1
     layer_visualization_exclusion_height_m: 2.0
@@ -93,8 +93,8 @@
       workspace_bounds_max_height_m: 2.0
       # esdf integrator
       esdf_integrator_min_weight: 0.1
-      esdf_integrator_max_site_distance_vox: 2.0
-      esdf_integrator_max_distance_m: 2.0
+      esdf_integrator_max_site_distance_vox: 5.0
+      esdf_integrator_max_distance_m: 3.0
       # mesh integrator
       mesh_integrator_min_weight: 0.1
       mesh_integrator_weld_vertices: true

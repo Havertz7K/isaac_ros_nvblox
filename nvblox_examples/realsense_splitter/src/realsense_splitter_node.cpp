@@ -28,7 +28,7 @@ RealsenseSplitterNode::RealsenseSplitterNode(const rclcpp::NodeOptions & options
   RCLCPP_INFO(get_logger(), "Creating a RealsenseSplitterNode().");
 
   // Subscriber/Publisher parameters
-  const std::string kDefaultQoS = "SYSTEM_DEFAULT";
+  const std::string kDefaultQoS = "SENSOR_DATA";
   constexpr size_t kInputQueueSize = 10;
   constexpr size_t kOutputQueueSize = 10;
 
@@ -117,9 +117,10 @@ void RealsenseSplitterNode::republishIfEmitterMode(
   const realsense2_camera_msgs::msg::Metadata::ConstSharedPtr & metadata,
   const EmitterMode emitter_mode, typename rclcpp::Publisher<MessageType>::SharedPtr & publisher)
 {
-  if (getEmitterModeFromMetadataMsg(metadata) == static_cast<int>(emitter_mode)) {
-    publisher->publish(*image);
-  }
+  // if (getEmitterModeFromMetadataMsg(metadata) == static_cast<int>(emitter_mode)) {
+  //   publisher->publish(*image);
+  // }
+  publisher->publish(*image);
 }
 
 void RealsenseSplitterNode::image1Callback(

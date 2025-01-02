@@ -45,20 +45,21 @@ def add_vslam(args: lu.ArgumentContainer) -> List[Action]:
     if camera is NvbloxCamera.realsense:
         base_frame = 'camera0_link'
     else:
-        base_frame = 'base_link'
+        base_frame = 'map'
 
     actions.append(lu.log_info(f'Starting cuVSLAM with base_frame: {base_frame}'))
 
     base_parameters = {
         'num_cameras': 2,
-        'min_num_images': 2,
-        'enable_localization_n_mapping': False,
+        'min_num_images': 1,
+        'enable_localization_n_mapping': True,
+        'enable_imu_fusion': False,
         'gyro_noise_density': 0.000244,
         'gyro_random_walk': 0.000019393,
         'accel_noise_density': 0.001862,
         'accel_random_walk': 0.003,
         'calibration_frequency': 200.0,
-        'rig_frame': 'base_link',
+        'rig_frame': 'map',
         'imu_frame': 'front_stereo_camera_imu',
         'enable_slam_visualization': True,
         'enable_landmarks_view': True,

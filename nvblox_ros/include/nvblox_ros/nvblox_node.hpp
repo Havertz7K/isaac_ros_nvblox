@@ -50,6 +50,7 @@
 
 #include <nvblox_msgs/srv/file_path.hpp>
 #include <nvblox_msgs/srv/esdf_and_gradients.hpp>
+#include <nvblox_msgs/srv/voxel_esdf_and_gradients.hpp>
 
 #include "nvblox_ros/layer_publishing.hpp"
 #include "nvblox_ros/conversions/image_conversions.hpp"
@@ -157,6 +158,9 @@ public:
   void getEsdfAndGradientService(
     const std::shared_ptr<nvblox_msgs::srv::EsdfAndGradients::Request> request,
     std::shared_ptr<nvblox_msgs::srv::EsdfAndGradients::Response> response);
+  void getVoxelEsdfAndGradients(
+    const std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Request> request,
+    std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Response> response);
 
   // Main tick function that process all input data queues in order
   virtual void tick();
@@ -420,9 +424,11 @@ protected:
   rclcpp::Service<nvblox_msgs::srv::FilePath>::SharedPtr save_rates_service_;
   rclcpp::Service<nvblox_msgs::srv::FilePath>::SharedPtr save_timings_service_;
   rclcpp::Service<nvblox_msgs::srv::EsdfAndGradients>::SharedPtr send_esdf_and_gradient_service_;
+  rclcpp::Service<nvblox_msgs::srv::VoxelEsdfAndGradients>::SharedPtr send_voxel_esdf_and_gradient_service_;
 
   // Callback groups.
   rclcpp::CallbackGroup::SharedPtr group_processing_;
+  rclcpp::CallbackGroup::SharedPtr esdf_service_group_;
 
   // Timers.
   rclcpp::TimerBase::SharedPtr queue_processing_timer_;

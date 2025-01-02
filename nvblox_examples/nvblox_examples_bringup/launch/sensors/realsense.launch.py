@@ -97,7 +97,7 @@ def add_cameras(args: lu.ArgumentContainer) -> List[Action]:
         camera_name = f'camera{idx}'
         # Config file
         if run_splitter:
-            config_file_path = EMITTER_FLASHING_CONFIG_FILE_PATH
+            config_file_path = EMITTER_ON_CONFIG_FILE_PATH
         else:
             config_file_path = EMITTER_ON_CONFIG_FILE_PATH
         # Realsense

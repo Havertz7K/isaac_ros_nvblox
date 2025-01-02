@@ -8,12 +8,14 @@
     map_clearing_frame_id: "camera0_link"
     # Rviz visualization
     esdf_slice_bounds_visualization_attachment_frame_id: "camera0_link"
+    integrate_depth_rate_hz: 30.0
+    integrate_color_rate_hz: 30.0
 
     static_mapper:
       esdf_slice_height: 0.0
       # Expected to be tuned by users. Slice height depends on realsense mounting.
       esdf_slice_min_height: -0.1
-      esdf_slice_max_height: 0.3
+      esdf_slice_max_height: 0.8
 
     dynamic_mapper:
       esdf_slice_height: 0.0

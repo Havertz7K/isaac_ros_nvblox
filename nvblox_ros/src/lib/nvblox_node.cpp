@@ -98,6 +98,8 @@ NvbloxNode::NvbloxNode(
   // subscriptions.
   group_processing_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
+  esdf_service_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+
   // Initialize the MultiMapper with the underlying dynamic/static mappers.
   initializeMultiMapper();
 
@@ -440,6 +442,12 @@ void NvbloxNode::advertiseServices()
       &NvbloxNode::getEsdfAndGradientService, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default);
+  send_voxel_esdf_and_gradient_service_ = create_service<nvblox_msgs::srv::VoxelEsdfAndGradients>(
+    "~/get_voxel_esdf_and_gradient",
+    std::bind(
+      &NvbloxNode::getVoxelEsdfAndGradients, this, std::placeholders::_1,
+      std::placeholders::_2),
+    rmw_qos_profile_services_default, esdf_service_group_);
 }
 
 void NvbloxNode::setupTimers()
@@ -771,12 +779,16 @@ void NvbloxNode::processEsdf()
   timing::Rates::tick("ros/update_esdf");
 
   timing::Timer esdf_integration_timer("ros/esdf/integrate");
+  //RCLCPP_INFO(get_logger(), "---------------------------------Updating ESDF---------------------------------");
   multi_mapper_->updateEsdf();
+  //RCLCPP_INFO(get_logger(), "---------------------------------ESDF Updated---------------------------------");
   if (newest_integrated_depth_time_ > rclcpp::Time(0, 0, RCL_ROS_TIME)) {
+    //RCLCPP_INFO(get_logger(), "---------------------------------ESDF Integration Delay---------------------------------");
     timing::Delays::tick(
       "ros/esdf_integration",
       nvblox::Time(newest_integrated_depth_time_.nanoseconds()),
       nvblox::Time(now().nanoseconds()));
+    //RCLCPP_INFO(get_logger(), "---------------------------------ESDF Integration Delay2222---------------------------------");
   }
   esdf_integration_timer.Stop();
 
@@ -1759,6 +1771,124 @@ void NvbloxNode::getEsdfAndGradientService(
   // Push the task onto the queue and wait for completion.
   pushOntoQueue(kEsdfServiceQueueName, task, esdf_service_queue_, &esdf_service_queue_mutex_);
   task->waitForTaskCompletion();
+}
+
+void NvbloxNode::getVoxelEsdfAndGradients(
+  const std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Request> request,
+  std::shared_ptr<nvblox_msgs::srv::VoxelEsdfAndGradients::Response> response)
+{
+  // 开始计时
+  auto start_time = std::chrono::high_resolution_clock::now();
+  
+  // 1. 数据准备阶段
+  const int num_links = request->link_positions.size();
+  std::vector<Vector3f> link_positions(num_links);
+  for (int i = 0; i < num_links; i++) {
+    link_positions[i] = Vector3f(
+      request->link_positions[i].x, 
+      request->link_positions[i].y, 
+      request->link_positions[i].z
+    );
+  }
+  
+  // auto prep_time = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "Data preparation took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(prep_time - start_time).count());
+
+  // 2. 参数设置阶段
+  const float voxel_size = static_mapper_->esdf_layer().voxel_size();
+  response->voxel_size.data = voxel_size;
+  std_msgs::msg::Float32MultiArray esdf_values;
+  esdf_values.data.resize(num_links);
+  response->gradients.resize(num_links);
+
+  // 3. 索引计算阶段
+  auto index_start = std::chrono::high_resolution_clock::now();
+  
+  std::vector<Index3D> block_indices(num_links);
+  std::vector<Index3D> voxel_indices(num_links);
+  std::vector<Vector3f> query_positions(num_links);
+
+  for (int i = 0; i < num_links; i++) {
+    Index3D block_idx, voxel_idx;
+    getBlockAndVoxelIndexFromPositionInLayer(
+      static_mapper_->esdf_layer().block_size(), 
+      link_positions[i],
+      &block_idx,
+      &voxel_idx
+    );
+    block_indices[i] = block_idx;
+    voxel_indices[i] = voxel_idx;
+  }
+
+  // auto index_end = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "Index calculation took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(index_end - index_start).count());
+
+  // 4. ESDF查询阶段
+  auto query_start = std::chrono::high_resolution_clock::now();
+  
+  std::vector<bool> success_flags(num_links);
+  std::vector<EsdfVoxel> voxels(num_links);
+  
+  auto* stream = cuda_stream_.get();
+  static_mapper_->esdf_layer().getVoxels(link_positions, &voxels, &success_flags, stream);
+  stream->synchronize();
+
+  // auto query_end = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "ESDF query took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(query_end - query_start).count());
+
+  // 5. 结果处理阶段
+  // auto process_start = std::chrono::high_resolution_clock::now();
+  
+  for (int i = 0; i < num_links; i++) {
+    if (success_flags[i]) {
+        float distance = voxel_size * std::sqrt(voxels[i].squared_distance_vox);
+        esdf_values.data[i] = distance;
+        if (voxels[i].is_inside) {
+            esdf_values.data[i] *= -1.0f;
+        }
+        Vector3f parent_dir = voxels[i].parent_direction.cast<float>();
+        float parent_distance = parent_dir.norm();
+        if (parent_distance > 0.0f) {
+            float base_scale = 1.0f ;
+            float distance_scale = 1.0f / (1.0f + std::abs(distance));
+            Vector3f gradient = parent_dir.normalized() * voxel_size * base_scale * distance_scale;
+            response->gradients[i].x = gradient.x();
+            response->gradients[i].y = gradient.y(); 
+            response->gradients[i].z = gradient.z();
+        } else {
+            response->gradients[i].x = -1.0f;
+            response->gradients[i].y = -1.0f;
+            response->gradients[i].z = -1.0f;
+        }
+    } else {
+        esdf_values.data[i] = params_.esdf_and_gradients_unobserved_value;
+        response->gradients[i].x = -1.0f;
+        response->gradients[i].y = -1.0f;
+        response->gradients[i].z = -1.0f;
+        success_flags[i] = true;
+    }
+  }
+
+  
+    RCLCPP_INFO(this->get_logger(), "esdf_values: [%f,%f,%f,%f,%f,%f,%f]", esdf_values.data[0], esdf_values.data[1], esdf_values.data[2], esdf_values.data[3], esdf_values.data[4], esdf_values.data[5], esdf_values.data[6]);
+    RCLCPP_INFO(this->get_logger(), "4-6 links gradients: [%f,%f,%f],[%f,%f,%f],[%f,%f,%f]",
+     response->gradients[4].x, response->gradients[4].y, response->gradients[4].z, 
+     response->gradients[5].x, response->gradients[5].y, response->gradients[5].z, 
+     response->gradients[6].x, response->gradients[6].y, response->gradients[6].z);
+
+  response->esdf_values = esdf_values;
+  response->valid = std::all_of(success_flags.begin(), success_flags.end(), [](bool flag = true) { return flag; });
+
+  auto end_time = std::chrono::high_resolution_clock::now();
+  // RCLCPP_INFO(this->get_logger(), "Result processing took: %ld microseconds", 
+  //   std::chrono::duration_cast<std::chrono::microseconds>(end_time - process_start).count());
+  
+  // // 总时间
+  RCLCPP_INFO(this->get_logger(), "Total execution took: %ld microseconds", 
+    std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
 }
 
 }  // namespace nvblox
